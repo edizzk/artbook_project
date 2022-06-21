@@ -1,8 +1,10 @@
 package com.example.artbook_project
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.sqlite.SQLiteDatabase
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.os.Build
@@ -17,6 +19,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.artbook_project.databinding.ActivityDetailBinding
 import com.google.android.material.snackbar.Snackbar
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 
 class DetailActivity : AppCompatActivity() {
@@ -25,6 +28,7 @@ class DetailActivity : AppCompatActivity() {
     private lateinit var activityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     var selectedBitmap : Bitmap? = null
+    private lateinit var database : SQLiteDatabase
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,13 +36,70 @@ class DetailActivity : AppCompatActivity() {
         val view = binding.root
         setContentView(view)
 
+        database = this.openOrCreateDatabase("Arts", Context.MODE_PRIVATE,null)
+
         registerLauncher()
 
     }
 
     fun saveButtonClick(view: View) {
 
+        val artName = binding.editTextArtName.text.toString()
+        val artistName = binding.editTextArtistName.text.toString()
+        val year = binding.editTextYear.text.toString()
+
+        if (selectedBitmap != null) {
+            val smallBitmap = makeSmallerBitmap(selectedBitmap!!,300)
+
+            val outputStream = ByteArrayOutputStream()
+            smallBitmap.compress(Bitmap.CompressFormat.PNG,50,outputStream)
+            val byteArray = outputStream.toByteArray()
+
+            try {
+
+                database.execSQL("CREATE TABLE IF NOT EXISTS arts (id INTEGER PRIMARY KEY, artname VARCHAR, artistname VARCHAR, year VARCHAR, image BLOB)")
+
+                val sqlString = "INSERT INTO arts (artname, artistname, year, image) VALUES (?, ?, ?, ?)"
+                val statement = database.compileStatement(sqlString)
+                statement.bindString(1, artName)
+                statement.bindString(2, artistName)
+                statement.bindString(3, year)
+                statement.bindBlob(4, byteArray)
+
+                statement.execute()
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            val intent = Intent(this,MainActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+
+            startActivity(intent)
+
+        }
+
+
+
     }
+
+    fun makeSmallerBitmap(image: Bitmap, maximumSize : Int) : Bitmap {
+        var width = image.width
+        var height = image.height
+
+        val bitmapRatio : Double = width.toDouble() / height.toDouble()
+        if (bitmapRatio > 1) {
+            width = maximumSize
+            val scaledHeight = width / bitmapRatio
+            height = scaledHeight.toInt()
+        } else {
+            height = maximumSize
+            val scaledWidth = height * bitmapRatio
+            width = scaledWidth.toInt()
+        }
+        return Bitmap.createScaledBitmap(image,width,height,true)
+    }
+
     fun selectImage(view: View) {
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE)) {
