@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.sqlite.SQLiteDatabase
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
@@ -39,6 +40,45 @@ class DetailActivity : AppCompatActivity() {
         database = this.openOrCreateDatabase("Arts", Context.MODE_PRIVATE,null)
 
         registerLauncher()
+
+        val intent = intent
+
+        val info = intent.getStringExtra("info")
+
+        if (info.equals("new")) {
+            binding.editTextArtName.setText("")
+            binding.editTextArtistName.setText("")
+            binding.editTextYear.setText("")
+            binding.button.visibility = View.VISIBLE
+
+            val selectedImageBackground = BitmapFactory.decodeResource(applicationContext.resources,R.drawable.add_icon)
+            binding.imageViewAdd.setImageBitmap(selectedImageBackground)
+
+        } else {
+            binding.button.visibility = View.INVISIBLE
+            val selectedId = intent.getIntExtra("id",1)
+
+            val cursor = database.rawQuery("SELECT * FROM arts WHERE id = ?", arrayOf(selectedId.toString()))
+
+            val artNameIx = cursor.getColumnIndex("artname")
+            val artistNameIx = cursor.getColumnIndex("artistname")
+            val yearIx = cursor.getColumnIndex("year")
+            val imageIx = cursor.getColumnIndex("image")
+
+            while (cursor.moveToNext()) {
+                binding.editTextArtName.setText(cursor.getString(artNameIx))
+                binding.editTextArtistName.setText(cursor.getString(artistNameIx))
+                binding.editTextYear.setText(cursor.getString(yearIx))
+
+                val byteArray = cursor.getBlob(imageIx)
+                val bitmap = BitmapFactory.decodeByteArray(byteArray,0,byteArray.size)
+                binding.imageViewAdd.setImageBitmap(bitmap)
+
+            }
+
+            cursor.close()
+
+        }
 
     }
 
@@ -78,9 +118,6 @@ class DetailActivity : AppCompatActivity() {
             startActivity(intent)
 
         }
-
-
-
     }
 
     fun makeSmallerBitmap(image: Bitmap, maximumSize : Int) : Bitmap {
